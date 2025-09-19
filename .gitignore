@@ -1,0 +1,24 @@
+# Top-level virtual environment
+/venv/
+
+# IDE and editor configuration
+.vscode/
+.idea/
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+*.env
+.env.*
+
+# Frontend build artifacts and dependencies
+/web/node_modules/
+/web/.next/
+/web/out/
+/web/build/
+
+# Log files
+*.log

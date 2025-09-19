@@ -1,0 +1,29 @@
+# Virtual Environment
+venv/
+*.venv
+env/
+.env
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build and distribution artifacts
+build/
+dist/
+*.egg-info/
+
+# Local environment variables
+.env
+*.env
+
+# Local ChromaDB data (if it creates local files)
+.chroma/
