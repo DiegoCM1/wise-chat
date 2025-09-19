@@ -22,3 +22,6 @@ Thumbs.db
 
 # Log files
 *.log
+
+# DB
+/backend/chroma_db/
