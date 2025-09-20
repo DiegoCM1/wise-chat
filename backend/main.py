@@ -25,6 +25,8 @@ class IngestData(BaseModel):
 
 class QueryData(BaseModel):
     q: str
+    k: int = 2
+
 
 
 class IngestResponse(BaseModel):
@@ -80,37 +82,26 @@ def ingest_text(data: IngestData):
     }
 
 
-# --- QUERY: Receives the input from the user ---
+# --- QUERY: Inputs the questions, a response as output ---
 @app.post("/query", response_model=QueryResponse)
 def query(data: QueryData):
-    # --- ADD THIS FOR DEBUGGING ---
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
-    retrieved_docs = retriever.invoke(data.q)
-    print("--- DEBUG: RETRIEVED DOCS ---")
-    print(retrieved_docs)
-    print("-----------------------------")
-    # --- END DEBUG ---
+    # Retrieve information from Vector DB
+    retriever = vectorstore.as_retriever(search_kwargs = {"k": data.k})
 
-    # Create a retriever from the vector store
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
-
-    # Prompt is defined
+    # Prompt definition
     template = """
-    You are an assistant for question-answering tasks. 
-    Use the following pieces of retrieved context to answer the question. 
-    If you don't know the answer based on the context, just say that you don't know. 
-    Be concise and stick to the facts.
-
+    Behave as a QA expert.
+    Base your answers on the provided context
+    If you don't have enough information to answer say "I don't have information to answer that"
     Context: {context}
-
     Question: {question}
-
-    Answer:
     """
+
     prompt = ChatPromptTemplate.from_template(template)
 
-    # RAG Chain is defined
-    rag_chain = (  # Creates the chain of process, passing the output of the first process as the input of the next
+
+    # Rag Chain definition LCEL
+    rag_chain = (
         {"context": retriever, "question": RunnablePassthrough()}
         | prompt
         | llm
@@ -119,8 +110,17 @@ def query(data: QueryData):
 
     answer = rag_chain.invoke(data.q)
 
+    # Delivering the response
     retrieved_docs = retriever.invoke(data.q)
     sources = [doc.metadata["source"] for doc in retrieved_docs]
 
-    # Answer is returned
+
+    # DEBUGGING
+    print("--- LOG ---")
+    print(f"Query: {data.q}")
+    print(f"Retrieved {len(retrieved_docs)} documents with k={data.k}")
+    print(f"Answer: {answer}")
+    print("-----------")
+
+
     return {"answer": answer, "sources": list(set(sources))}
