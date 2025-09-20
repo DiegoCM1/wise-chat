@@ -1,7 +1,9 @@
 from dotenv import load_dotenv
 load_dotenv()
-
 import os
+print(f"--- Loaded OPENROUTER_API_KEY: {os.getenv('OPENROUTER_API_KEY')} ---")
+
+
 import uuid
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -41,7 +43,7 @@ app = FastAPI()
 # --- LangChain & Vector Store Setup ---
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 llm = ChatOpenAI(
-    model_name="mistralai/mistral-7b-instruct:free",
+    model_name="x-ai/grok-4-fast:free",
     openai_api_base="https://openrouter.ai/api/v1",
     openai_api_key=os.getenv("OPENROUTER_API_KEY"),
     temperature=0
@@ -78,6 +80,13 @@ def ingest_text(data: IngestData):
 
 @app.post("/query", response_model=QueryResponse)
 def query(data: QueryData):
+        # --- ADD THIS FOR DEBUGGING ---
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
+    retrieved_docs = retriever.invoke(data.q)
+    print("--- DEBUG: RETRIEVED DOCS ---")
+    print(retrieved_docs)
+    print("-----------------------------")
+    # --- END DEBUG ---
     # REFACTORED: Create a retriever from the vector store
     retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
 
@@ -89,7 +98,7 @@ def query(data: QueryData):
     """
     prompt = ChatPromptTemplate.from_template(template)
     
-    rag_chain = (
+    rag_chain = ( # Creates the chain of process, passing the output of the first process as the input of the next
         {"context": retriever, "question": RunnablePassthrough()}
         | prompt
         | llm
