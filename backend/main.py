@@ -12,7 +12,7 @@ from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
-from langchain.schema.runnable import RunnablePassthrough
+from langchain.schema.runnable import RunnablePassthrough, RunnableParallel
 from langchain.schema.output_parser import StrOutputParser
 from langchain.docstore.document import Document
 
@@ -85,42 +85,46 @@ def ingest_text(data: IngestData):
 # --- QUERY: Inputs the questions, a response as output ---
 @app.post("/query", response_model=QueryResponse)
 def query(data: QueryData):
-    # Retrieve information from Vector DB
-    retriever = vectorstore.as_retriever(search_kwargs = {"k": data.k})
+    # Create a retriever from the vector store
+    retriever = vectorstore.as_retriever(search_kwargs={"k": data.k})
 
-    # Prompt definition
+    # Define the prompt template
     template = """
     Behave as a QA expert.
-    Base your answers on the provided context
-    If you don't have enough information to answer say "I don't have information to answer that"
+    Base your answers on the provided context.
+    If you don't have enough information to answer, say "I don't have information to answer that."
+    
     Context: {context}
+    
     Question: {question}
     """
-
     prompt = ChatPromptTemplate.from_template(template)
 
-
-    # Rag Chain definition LCEL
-    rag_chain = (
-        {"context": retriever, "question": RunnablePassthrough()}
-        | prompt
+    # This is the chain that takes the context and question and generates an answer
+    rag_chain_from_docs = (
+        prompt
         | llm
         | StrOutputParser()
     )
 
-    answer = rag_chain.invoke(data.q)
+    # This is the full chain that retrieves documents, passes them through, and gets the answer
+    rag_chain_with_source = RunnableParallel(
+        {"context": retriever, "question": RunnablePassthrough()}
+    ).assign(answer=rag_chain_from_docs)
 
-    # Delivering the response
-    retrieved_docs = retriever.invoke(data.q)
+    # Invoke the final chain. The result is a dictionary.
+    result = rag_chain_with_source.invoke(data.q)
+    
+    # Extract the answer and sources from the single result dictionary
+    answer = result["answer"]
+    retrieved_docs = result["context"]
     sources = [doc.metadata["source"] for doc in retrieved_docs]
 
-
-    # DEBUGGING
+    # Add logging for observability
     print("--- LOG ---")
     print(f"Query: {data.q}")
     print(f"Retrieved {len(retrieved_docs)} documents with k={data.k}")
     print(f"Answer: {answer}")
     print("-----------")
-
 
     return {"answer": answer, "sources": list(set(sources))}
